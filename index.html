@@ -169,6 +169,12 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
 .setup-person{border:1.5px solid var(--ink);background:var(--paper-2);padding:16px;margin-bottom:14px}
 .grid5{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
 .err{border:1.5px solid var(--pink);background:#fff;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.drop{border:2px dashed var(--line);background:var(--paper);padding:26px 18px;text-align:center;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--blue);background:#fff}
+.drop b{display:block;font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.drop .note{display:block;margin-top:8px}
+.linkish{background:none;border:0;padding:0;font:inherit;color:var(--blue);text-decoration:underline;cursor:pointer}
+.linkish:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
 
 /* ---------- ask + component view ---------- */
 .viewtoggle{display:flex;border:1.5px solid var(--ink);width:fit-content;max-width:100%;margin:0 0 16px}
@@ -317,12 +323,19 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
       <div id="codeOut" class="hidden" style="margin-top:22px">
         <span class="eyebrow">Done</span>
         <h2>Send this back</h2>
-        <p class="lede">Paste this code to the facilitator in Slack. It holds your name, your scores and your notes — nothing else.</p>
-        <div class="code" id="codeText"></div>
+        <p class="lede">Download your file and drop it in the Slack thread. It holds your name, your scores and your notes — nothing else.</p>
+        <div class="row">
+          <button class="btn" id="dlSub">Download my ratings</button>
+          <span class="note" id="dlName"></span>
+        </div>
         <div class="row" style="margin-top:10px">
-          <button class="btn small" id="copyCode">Copy code</button>
           <button class="btn ghost small" id="editAgain">Go back and change something</button>
         </div>
+        <details style="margin-top:16px">
+          <summary>Or send a code instead</summary>
+          <div class="code" id="codeText" style="margin-top:10px"></div>
+          <div class="row" style="margin-top:10px"><button class="btn small" id="copyCode">Copy code</button></div>
+        </details>
       </div>
     </div>
   </section>
@@ -331,20 +344,30 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
   <section id="view-results" class="hidden">
     <span class="eyebrow">Facilitator only</span>
     <h2>Results</h2>
-    <p class="lede">Paste the codes from the room, one per line. They stay in this browser.</p>
+    <p class="lede">Anything committed to the <code>subs/</code> folder loads on its own. You can also drop the files straight in — nothing leaves this browser.</p>
 
     <div class="card">
-      <label for="codeIn">Codes</label>
-      <textarea id="codeIn" rows="4" placeholder="eyJyIjowLCJz..."></textarea>
-      <div class="row" style="margin-top:10px">
-        <button class="btn" id="addCodes">Add codes</button>
+      <div class="drop" id="drop">
+        <b>Drop the .json files here</b>
+        <input type="file" id="fileIn" multiple accept=".json,application/json" class="hidden">
+        <span class="note">or <button type="button" class="linkish" id="pickFiles">choose them</button> — all eight at once is fine</span>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="loadRepo">Reload from repo</button>
         <button class="btn ghost small" id="clearCodes">Clear all</button>
         <button class="btn ghost small" id="exportCsv">Export CSV</button>
         <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;font-family:inherit;font-size:14px;color:var(--ink)">
           <input type="checkbox" id="showNames" style="width:auto"> Show who said what
         </label>
       </div>
-      <div id="resErr"></div>
+      <details style="margin-top:14px">
+        <summary>Paste codes instead</summary>
+        <div style="margin-top:10px">
+          <textarea id="codeIn" rows="3" placeholder="eyJyIjowLCJz..."></textarea>
+          <div class="row" style="margin-top:8px"><button class="btn small" id="addCodes">Add codes</button></div>
+        </div>
+      </details>
+      <div id="resErr" style="margin-top:12px"></div>
       <p class="note" id="subCount" style="margin:10px 0 0"></p>
     </div>
 
@@ -466,6 +489,7 @@ async function boot(){
   buildSetup();
   if(CFG){ buildRaterPicker(); show("rate"); }
   else { show("setup"); }
+  loadFromRepo(true);   // anything committed to subs/ just shows up
 }
 
 /* ================= SETUP ================= */
@@ -530,11 +554,15 @@ $("#copyLink").addEventListener("click", ()=>copy($("#linkText").textContent, "L
 $("#dlJson").addEventListener("click", ()=>{
   const cfg = readSetup();
   if(!cfg.p.length){ toast("Nothing to download yet"); return; }
-  const blob = new Blob([JSON.stringify(cfg,null,2)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download="spines.json"; a.click();
-  URL.revokeObjectURL(a.href);
+  download("spines.json", JSON.stringify(cfg,null,2), "application/json");
 });
+
+function download(name, text, type){
+  const blob = new Blob([text],{type});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 function copy(text, msg){
   navigator.clipboard.writeText(text).then(()=>toast(msg||"Copied")).catch(()=>{
@@ -633,13 +661,26 @@ function updateProgress(){
   $("#finishBtn").disabled = !ready;
   $("#finishBtn2").disabled = !ready;
 }
+let lastPayload = null;
+function subFilename(p){
+  const spine = String(p.r+1).padStart(2,"0");
+  const who = fold(p.n||"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "anon";
+  return `spine-${spine}-${who}.json`;
+}
 function finish(){
   const payload = {v:1, r:draft.r, n:draft.nm || CFG.p[draft.r].n, s:draft.s, c:{}};
   Object.keys(draft.c).forEach(k=>{ if((draft.c[k]||"").trim()) payload.c[k]=draft.c[k].trim(); });
+  lastPayload = payload;
   $("#codeText").textContent = enc(payload);
+  $("#dlName").textContent = subFilename(payload);
   $("#codeOut").classList.remove("hidden");
   $("#codeOut").scrollIntoView({behavior:"smooth", block:"start"});
 }
+$("#dlSub").addEventListener("click", ()=>{
+  if(!lastPayload) return;
+  download(subFilename(lastPayload), JSON.stringify(lastPayload,null,2), "application/json");
+  toast("Downloaded");
+});
 $("#finishBtn").addEventListener("click", finish);
 $("#finishBtn2").addEventListener("click", finish);
 $("#copyCode").addEventListener("click", ()=>copy($("#codeText").textContent, "Code copied"));
@@ -655,21 +696,91 @@ function loadSubs(){
 }
 function saveSubs(){ store.set("spine.subs", JSON.stringify(subs)); }
 
+/* one submission in, whatever the route it arrived by */
+function ingest(obj){
+  if(!obj || typeof obj.r!=="number" || !obj.s || typeof obj.s!=="object") return null;
+  const k = subs.findIndex(s=>s.r===obj.r);
+  if(k>=0){ subs[k]=obj; return "updated"; }
+  subs.push(obj); return "added";
+}
+function finishIntake(added, updated, errs, quiet){
+  saveSubs();
+  $("#resErr").innerHTML = errs.length
+    ? `<div class="err">Could not read ${errs.length} item${errs.length>1?"s":""}: ${esc(errs.join(", "))}. Ask for it again.</div>` : "";
+  if(!quiet) toast(added+" added, "+updated+" updated");
+  renderResults();
+}
+
 $("#addCodes").addEventListener("click", ()=>{
   const lines = $("#codeIn").value.split(/[\s\n]+/).map(s=>s.trim()).filter(Boolean);
-  const errs=[]; let added=0, replaced=0;
+  const errs=[]; let added=0, updated=0;
   lines.forEach(l=>{
     let obj; try{ obj = dec(l); }catch(e){ errs.push(l.slice(0,14)+"..."); return; }
-    if(typeof obj.r!=="number" || !obj.s){ errs.push(l.slice(0,14)+"..."); return; }
-    const existing = subs.findIndex(s=>s.r===obj.r);
-    if(existing>=0){ subs[existing]=obj; replaced++; } else { subs.push(obj); added++; }
+    const r = ingest(obj);
+    if(!r) errs.push(l.slice(0,14)+"..."); else if(r==="added") added++; else updated++;
   });
-  saveSubs();
   $("#codeIn").value="";
-  $("#resErr").innerHTML = errs.length ? `<div class="err">Could not read ${errs.length} code${errs.length>1?"s":""}: ${esc(errs.join(", "))}. Ask them to copy the whole thing again.</div>` : "";
-  toast(added+" added, "+replaced+" updated");
-  renderResults();
+  finishIntake(added, updated, errs);
 });
+
+/* ---- files dropped or picked ---- */
+async function ingestFiles(files){
+  const list = Array.from(files||[]).filter(f=>/\.json$/i.test(f.name));
+  if(!list.length){ toast("No .json files there"); return; }
+  const errs=[]; let added=0, updated=0;
+  for(const f of list){
+    try{
+      const parsed = JSON.parse(await f.text());
+      (Array.isArray(parsed) ? parsed : [parsed]).forEach(o=>{
+        const r = ingest(o);
+        if(!r) errs.push(f.name); else if(r==="added") added++; else updated++;
+      });
+    }catch(e){ errs.push(f.name); }
+  }
+  finishIntake(added, updated, errs);
+}
+$("#pickFiles").addEventListener("click", ()=>$("#fileIn").click());
+$("#fileIn").addEventListener("change", e=>{ ingestFiles(e.target.files); e.target.value=""; });
+const dropZone = $("#drop");
+["dragenter","dragover"].forEach(ev=>dropZone.addEventListener(ev, e=>{ e.preventDefault(); dropZone.classList.add("over"); }));
+["dragleave","dragend"].forEach(ev=>dropZone.addEventListener(ev, ()=>dropZone.classList.remove("over")));
+dropZone.addEventListener("drop", e=>{
+  e.preventDefault(); dropZone.classList.remove("over");
+  ingestFiles(e.dataTransfer && e.dataTransfer.files);
+});
+
+/* ---- the subs/ folder in the repo this page is served from ---- */
+function repoBase(){
+  const m = /^([a-z0-9-]+)\.github\.io$/i.exec(location.hostname);
+  if(!m) return null;
+  const seg = location.pathname.split("/").filter(Boolean)[0];
+  return {owner:m[1], repo: seg || (m[1]+".github.io")};
+}
+async function loadFromRepo(quiet){
+  const b = repoBase();
+  if(!b){ if(!quiet) toast("Not a GitHub Pages URL"); return; }
+  let files;
+  try{
+    const r = await fetch(`https://api.github.com/repos/${b.owner}/${b.repo}/contents/subs`, {cache:"no-store"});
+    if(!r.ok){ if(!quiet) toast(r.status===404 ? "No subs/ folder yet" : "GitHub said "+r.status); return; }
+    const listing = await r.json();
+    files = (Array.isArray(listing) ? listing : []).filter(f=>f.type==="file" && /\.json$/i.test(f.name));
+  }catch(e){ if(!quiet) toast("Could not reach GitHub"); return; }
+  if(!files.length){ if(!quiet) toast("Nothing in subs/ yet"); return; }
+  const errs=[]; let added=0, updated=0;
+  await Promise.all(files.map(async f=>{
+    try{
+      const parsed = await (await fetch(f.download_url, {cache:"no-store"})).json();
+      (Array.isArray(parsed) ? parsed : [parsed]).forEach(o=>{
+        const r = ingest(o);
+        if(!r) errs.push(f.name); else if(r==="added") added++; else updated++;
+      });
+    }catch(e){ errs.push(f.name); }
+  }));
+  if(quiet && !added && !updated && !errs.length) return;
+  finishIntake(added, updated, errs, quiet);
+}
+$("#loadRepo").addEventListener("click", ()=>loadFromRepo(false));
 $("#clearCodes").addEventListener("click", ()=>{
   if(!confirm("Delete all submissions from this browser?")) return;
   subs=[]; saveSubs(); renderResults(); toast("Cleared");
@@ -950,10 +1061,7 @@ $("#exportCsv").addEventListener("click", ()=>{
     });
   });
   const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download="spine-check-results.csv"; a.click();
-  URL.revokeObjectURL(a.href);
+  download("spine-check-results.csv", csv, "text/csv;charset=utf-8");
 });
 
 function growAll(){

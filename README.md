@@ -1,6 +1,6 @@
 # Spine Check
 
-A single-file tool for peer-rating brand spines in a workshop. No backend, no accounts, no data leaves anyone's browser.
+A single-file tool for peer-rating brand spines in a workshop. No backend, no database, no accounts. Submissions are just JSON files.
 
 Each spine has five components: **Who, Outcome, Mechanism, Quality, Reject**. Everyone scores every spine's five components 1 to 5 — their own included — and can leave one written note per spine.
 
@@ -16,10 +16,17 @@ The eight spines from the August 2026 Smitten session are already committed as `
 ## Running the session
 
 1. Drop the plain URL in Slack. The spines load from `spines.json` — no setup step needed.
-2. Everyone opens it, picks which spine is theirs and types their name, rates all 8, clicks **Finish**, and pastes the code back to you.
-3. You open **Results**, paste all the codes into the box, and hit **Add codes**.
+2. Everyone opens it, picks which spine is theirs and types their name, rates all 8, hits **Finish**, then **Download my ratings**. They get a file named after their spine and themselves, like `spine-03-bjorn.json`.
+3. They drop that file back in the Slack thread.
+4. You open **Results** and drag all eight files onto the drop zone at once.
+
+**To make the results page stand on its own**, commit those eight files into `subs/` instead of dragging them. The Results tab lists that folder through the public GitHub API every time it opens, so anyone with the URL sees the full results with nothing to drag, and they survive a cleared browser.
 
 To run it with a different set of spines: go to **Set up**, type them in, then either click **Make the rating link** and send that, or click **Download spines.json** and commit that file over the existing one.
+
+### Why there is a step 3
+
+A page served from GitHub Pages is static. For a rater's browser to write straight into the repo it would need a GitHub token, and a token in a public page is both readable by everyone and auto-revoked by GitHub's secret scanning within minutes of being pushed. So the file makes one hop through Slack. Everything after that is automatic.
 
 ## What the results show
 
@@ -32,7 +39,8 @@ To run it with a different set of spines: go to **Set up**, type them in, then e
 
 ## Notes
 
-- Spines are numbered, not named, so the room rates the writing rather than the writer. The rater's own name rides along in their code, which is how the facilitator knows who has submitted and who left which note.
-- Codes are base64 JSON. Anyone who has a code can decode it — including the rater's name and every score they gave — so this is not anonymous against a determined reader. It is anonymous enough for a room that is trying to be honest.
-- Submissions and drafts are kept in the browser's local storage. Clearing site data wipes them. Export the CSV if you want to keep the results.
-- Re-pasting a code from someone who already submitted overwrites their earlier one.
+- Spines are numbered, not named, so the room rates the writing rather than the writer. The rater's own name rides along in their file, which is how the facilitator knows who has submitted and who left which note.
+- A submission is plain readable JSON — name, every score, every note. Committing `subs/` to a public repo publishes all of it. Keep the room's expectations honest about that, or hold the files somewhere private and drag them in instead.
+- Submissions and drafts are also cached in the browser's local storage, so a half-finished rating survives a refresh. Clearing site data wipes that; `subs/` and the CSV export are what actually persist.
+- One file per spine number wins. A second file for the same number — a re-rate, a corrected name — replaces the first, whether it arrives by drop, by repo, or by code.
+- The code box is still there under **Paste codes instead**, for anyone who can't upload a file.
