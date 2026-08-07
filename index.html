@@ -169,6 +169,53 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
 .setup-person{border:1.5px solid var(--ink);background:var(--paper-2);padding:16px;margin-bottom:14px}
 .grid5{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
 .err{border:1.5px solid var(--pink);background:#fff;padding:10px 12px;font-size:14px;margin-bottom:12px}
+
+/* ---------- ask + component view ---------- */
+.viewtoggle{display:flex;border:1.5px solid var(--ink);width:fit-content;max-width:100%;margin:0 0 16px}
+.viewtoggle button{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  background:transparent;border:0;border-right:1.5px solid var(--ink);padding:9px 14px;cursor:pointer;color:var(--ink);
+}
+.viewtoggle button:last-child{border-right:0}
+.viewtoggle button[aria-current="true"]{background:var(--ink);color:var(--paper)}
+.viewtoggle button:focus-visible{outline:3px solid var(--pink);outline-offset:-3px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chips button{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.06em;
+  background:transparent;border:1.5px solid var(--line);padding:5px 9px;cursor:pointer;color:var(--muted);
+}
+.chips button:hover{border-color:var(--ink);color:var(--ink)}
+.chips button:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+#askInput{font-family:"IBM Plex Mono",monospace;font-size:16px}
+.answer{border:2px solid var(--ink);background:#fff;padding:18px;margin-top:16px}
+.answer .q{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}
+.answer .big{font-family:Anton,Impact,sans-serif;font-size:clamp(24px,5vw,38px);text-transform:uppercase;line-height:1;letter-spacing:.01em}
+.answer .quote{font-size:17px;margin-top:10px;border-left:4px solid var(--blue);padding-left:12px}
+.answer .score{font-family:"IBM Plex Mono",monospace;font-size:14px;font-weight:600;margin-top:10px}
+.answer .score em{font-style:normal;color:var(--muted);font-weight:400}
+.answer.miss{border-color:var(--line)}
+.crow{display:grid;grid-template-columns:22px 110px 1fr 132px;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}
+.crow:last-child{border-bottom:0}
+.crow .cpos{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);padding-top:2px}
+.crow .cname{font-weight:500}
+.crow .ctext{font-size:14px}
+.crow .cscore{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.crow .cbar{width:100%;height:12px;border:1.5px solid var(--ink);background:var(--paper)}
+.crow .cbar i{display:block;height:100%}
+.crow .cnum{font-family:"IBM Plex Mono",monospace;font-size:12px}
+.crow .cnum em{font-style:normal;color:var(--muted)}
+.badge{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  padding:2px 5px;margin-left:6px;color:#fff;vertical-align:middle;
+}
+.badge.top{background:var(--blue)}
+.badge.bot{background:var(--pink)}
+@media (max-width:600px){
+  .crow{grid-template-columns:22px 1fr;gap:4px 10px}
+  .crow .ctext{grid-column:2}
+  .crow .cscore{grid-column:2;align-items:flex-start}
+  .crow .cbar{width:60%}
+}
 @media (max-width:600px){
   .srow{grid-template-columns:74px 1fr 66px}
   .rank .track{flex-basis:34%}
@@ -295,6 +342,18 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
       </div>
       <div id="resErr"></div>
       <p class="note" id="subCount" style="margin:10px 0 0"></p>
+    </div>
+
+    <div class="card hidden" id="askCard">
+      <label for="askInput">Ask the results</label>
+      <input type="text" id="askInput" placeholder="top who" autocomplete="off" spellcheck="false">
+      <div class="chips" id="askChips"></div>
+      <div id="askAnswer"></div>
+    </div>
+
+    <div class="viewtoggle hidden" id="resViewToggle">
+      <button data-rv="person" aria-current="true">By person</button>
+      <button data-rv="component">By component</button>
     </div>
 
     <div id="resultsBody"></div>
@@ -632,18 +691,166 @@ function aggregate(){
   });
 }
 
-function renderResults(){
-  if(!CFG) return;
-  $("#subCount").textContent = subs.length
-    ? subs.length + " of " + CFG.p.length + " people have submitted: " + subs.map(s=>s.n || (CFG.p[s.r]||{}).n || "?").join(", ")
-    : "No submissions yet.";
-  const body = $("#resultsBody");
-  if(!subs.length){ body.innerHTML=""; return; }
+let AGG = [];
+let resView = "person";
 
-  const data = aggregate().filter(d=>d.overall.n>0);
-  const ranked = [...data].sort((a,b)=>b.overall.mean-a.overall.mean);
-  const showNames = $("#showNames").checked;
+const COMP_ALIASES = {
+  who:      ["who","audience","customer","target","segment"],
+  outcome:  ["outcome","result","results","change","promise","benefit"],
+  mechanism:["mechanism","method","engine","mechanic"],
+  quality:  ["quality","standard","standards","bar","craft"],
+  reject:   ["reject","rejects","refuse","refusal","enemy","anti"]
+};
+const TOP_WORDS = ["top","best","sharpest","highest","strongest","winner","won","win","clearest"];
+const BOT_WORDS = ["bottom","worst","weakest","lowest","softest","vaguest","loser","fuzziest"];
+const SPLIT_WORDS = ["split","disagree","disagreed","disagreement","contested","divided","variance","spread","argument"];
 
+// accent-insensitive so "magnus" finds "Magnús" and "olof" finds "Ólöf"
+function fold(str){
+  return String(str).toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/ð/g,"d").replace(/þ/g,"th").replace(/æ/g,"ae").replace(/ø/g,"o");
+}
+
+function partIndex(key){ return PARTS.findIndex(p=>p.key===key); }
+
+function parseAsk(q){
+  const tokens = fold(q).split(/[^a-z0-9]+/).filter(Boolean);
+  if(!tokens.length) return null;
+  let comp = null;
+  for(const key in COMP_ALIASES){
+    if(tokens.some(t=>COMP_ALIASES[key].includes(t))){ comp = key; break; }
+  }
+  const dir = tokens.some(t=>TOP_WORDS.includes(t)) ? "top"
+            : tokens.some(t=>BOT_WORDS.includes(t)) ? "bottom" : null;
+  const split = tokens.some(t=>SPLIT_WORDS.includes(t));
+  let person = null;
+  AGG.forEach(d=>{
+    const nameTokens = fold(d.name).split(/\s+/);
+    if(tokens.some(t=>t.length>2 && nameTokens.some(n=>n.startsWith(t)))) person = d;
+  });
+  return {comp, dir, split, person, tokens};
+}
+
+function answerBlock(q){
+  if(!AGG.length) return "";
+  const p = parseAsk(q);
+  if(!p) return "";
+  const miss = `<div class="answer miss"><span class="q">No match</span>
+    <div class="quote" style="border-color:var(--line)">Try a component name (who, outcome, mechanism, quality, reject), with top or bottom in front of it. Or type someone's name.</div></div>`;
+
+  // person + component
+  if(p.person && p.comp){
+    const j = partIndex(p.comp), st = p.person.partStats[j];
+    if(!st.n) return miss;
+    const rank = rankFor(p.comp).findIndex(x=>x.i===p.person.i)+1;
+    return `<div class="answer"><span class="q">${esc(p.person.name)} &middot; ${PARTS[j].label}</span>
+      <div class="big">${st.mean.toFixed(2)} / 5</div>
+      <div class="quote">${esc(p.person.spine[p.comp]||"(blank)")}</div>
+      <div class="score">Rank ${rank} of ${rankFor(p.comp).length} &nbsp;<em>spread &plusmn;${st.sd.toFixed(2)}</em></div></div>`;
+  }
+  // most contested
+  if(p.split){
+    let worst=null;
+    AGG.forEach(d=>d.partStats.forEach((st,j)=>{
+      if(st.n && (!worst || st.sd>worst.st.sd)) worst={d,st,j};
+    }));
+    if(!worst) return miss;
+    return `<div class="answer"><span class="q">Biggest disagreement in the room</span>
+      <div class="big">${esc(worst.d.name)} &middot; ${PARTS[worst.j].label}</div>
+      <div class="quote">${esc(worst.d.spine[PARTS[worst.j].key]||"(blank)")}</div>
+      <div class="score">Mean ${worst.st.mean.toFixed(2)} &nbsp;<em>spread &plusmn;${worst.st.sd.toFixed(2)} across ${worst.st.n} raters</em></div></div>`;
+  }
+  // component (with or without direction)
+  if(p.comp){
+    const j = partIndex(p.comp);
+    const list = rankFor(p.comp);
+    if(!list.length) return miss;
+    const dir = p.dir || "top";
+    const pick = dir==="top" ? list[0] : list[list.length-1];
+    const others = (dir==="top" ? list.slice(1,4) : list.slice(0,-1).reverse().slice(0,3));
+    return `<div class="answer"><span class="q">${dir==="top"?"Sharpest":"Weakest"} ${PARTS[j].label} in the room</span>
+      <div class="big">${esc(pick.name)}</div>
+      <div class="quote">${esc(pick.text||"(blank)")}</div>
+      <div class="score">${pick.mean.toFixed(2)} / 5 &nbsp;<em>spread &plusmn;${pick.sd.toFixed(2)}</em></div>
+      ${others.length?`<div class="score" style="font-weight:400;margin-top:12px"><em>Then: ${others.map(o=>esc(o.name)+" "+o.mean.toFixed(2)).join(" &middot; ")}</em></div>`:""}
+      </div>`;
+  }
+  // direction alone, overall
+  if(p.dir){
+    const list = [...AGG].sort((a,b)=>b.overall.mean-a.overall.mean);
+    const pick = p.dir==="top" ? list[0] : list[list.length-1];
+    const weakest = pick.partStats.map((st,j)=>({st,j})).filter(x=>x.st.n).sort((a,b)=>a.st.mean-b.st.mean)[0];
+    return `<div class="answer"><span class="q">${p.dir==="top"?"Strongest":"Weakest"} spine overall</span>
+      <div class="big">${esc(pick.name)}</div>
+      <div class="score">${pick.overall.mean.toFixed(2)} / 5 across all five components</div>
+      ${weakest?`<div class="quote">Softest part: ${PARTS[weakest.j].label} at ${weakest.st.mean.toFixed(2)}</div>`:""}
+      </div>`;
+  }
+  // person alone
+  if(p.person){
+    const d = p.person;
+    return `<div class="answer"><span class="q">${esc(d.name)}</span>
+      <div class="big">${d.overall.mean.toFixed(2)} / 5</div>
+      <div class="score" style="font-weight:400;margin-top:12px">${PARTS.map((part,j)=>
+        d.partStats[j].n ? `${part.label} ${d.partStats[j].mean.toFixed(2)}` : ""
+      ).filter(Boolean).join(" &middot; ")}</div></div>`;
+  }
+  return miss;
+}
+
+function rankFor(key){
+  const j = partIndex(key);
+  return AGG.filter(d=>d.partStats[j].n)
+    .map(d=>({i:d.i, name:d.name, text:d.spine[key], mean:d.partStats[j].mean, sd:d.partStats[j].sd, n:d.partStats[j].n}))
+    .sort((a,b)=>b.mean-a.mean);
+}
+
+function renderAsk(){
+  const q = $("#askInput").value.trim();
+  $("#askAnswer").innerHTML = q ? answerBlock(q) : "";
+}
+$("#askInput").addEventListener("input", renderAsk);
+$("#askChips").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  $("#askInput").value = b.dataset.q;
+  renderAsk();
+});
+$("#resViewToggle").addEventListener("click", e=>{
+  const b=e.target.closest("button[data-rv]"); if(!b) return;
+  resView = b.dataset.rv;
+  $$("#resViewToggle button").forEach(x=>x.setAttribute("aria-current", String(x.dataset.rv===resView)));
+  renderResults();
+});
+
+function byComponentHTML(){
+  let html = "";
+  PARTS.forEach(part=>{
+    const list = rankFor(part.key);
+    if(!list.length) return;
+    const hi = list[0].mean, lo = list[list.length-1].mean;
+    html += `<div class="card">
+      <div class="person-head">
+        <span class="name">${part.label}</span>
+        <span class="meta">top ${hi.toFixed(2)} &nbsp;·&nbsp; bottom ${lo.toFixed(2)} &nbsp;·&nbsp; gap ${(hi-lo).toFixed(2)}</span>
+      </div>
+      <p class="note" style="margin:-6px 0 10px">${esc(part.hint)}</p>
+      ${list.map((r,k)=>`<div class="crow">
+        <span class="cpos">${String(k+1).padStart(2,"0")}</span>
+        <span class="cname">${esc(r.name)}${k===0?'<span class="badge top">sharpest</span>':""}${k===list.length-1?'<span class="badge bot">weakest</span>':""}</span>
+        <span class="ctext">${esc(r.text)||'<span class="note">(blank)</span>'}</span>
+        <span class="cscore">
+          <span class="cbar"><i style="width:${r.mean/5*100}%;background:${shade(r.mean)}"></i></span>
+          <span class="cnum">${r.mean.toFixed(2)} <em>&plusmn;${r.sd.toFixed(2)}</em></span>
+        </span>
+      </div>`).join("")}
+    </div>`;
+  });
+  return html;
+}
+
+function byPersonHTML(showNames){
+  const ranked = [...AGG].sort((a,b)=>b.overall.mean-a.overall.mean);
   let html = `<div class="card"><span class="eyebrow">The room, ranked</span><h3 style="margin-bottom:10px">Overall sharpness</h3>`;
   ranked.forEach((d,k)=>{
     html += `<div class="rank">
@@ -656,7 +863,7 @@ function renderResults(){
   html += `<p class="note" style="margin-top:10px">Mean of all five components, all raters. Out of 5.</p></div>`;
 
   const compAvg = PARTS.map((p,j)=>{
-    const vals = data.map(d=>d.partStats[j]).filter(s=>s.n).map(s=>s.mean);
+    const vals = AGG.map(d=>d.partStats[j]).filter(s=>s.n).map(s=>s.mean);
     return {label:p.label, mean: vals.length? vals.reduce((a,b)=>a+b,0)/vals.length : 0};
   }).sort((a,b)=>a.mean-b.mean);
   html += `<div class="card"><span class="eyebrow">Pattern across the room</span>
@@ -665,10 +872,7 @@ function renderResults(){
   </div>`;
 
   ranked.forEach(d=>{
-    const weakest = d.partStats
-      .map((s,j)=>({s,j}))
-      .filter(x=>x.s.n)
-      .sort((a,b)=>a.s.mean-b.s.mean)[0];
+    const weakest = d.partStats.map((s,j)=>({s,j})).filter(x=>x.s.n).sort((a,b)=>a.s.mean-b.s.mean)[0];
     html += `<div class="card">
       <div class="person-head">
         <span class="name">${esc(d.name)}</span>
@@ -681,19 +885,40 @@ function renderResults(){
           return `<div class="srow">
             <span class="sl">${part.label}</span>
             <span class="sb"><i style="width:${s.mean/5*100}%;background:${shade(s.mean)}"></i></span>
-            <span class="sv">${s.mean.toFixed(2)} <em>±${s.sd.toFixed(1)}</em></span>
+            <span class="sv">${s.mean.toFixed(2)} <em>&plusmn;${s.sd.toFixed(1)}</em></span>
           </div>
           ${s.sd>=SD_FLAG?'<div style="margin:-2px 0 2px 102px"><span class="flag">split room</span></div>':""}`;
         }).join("")}
       </div>
-      ${weakest ? `<div class="callout"><b>Sharpen first:</b> ${esc(PARTS[weakest.j].label)} &nbsp;<span class="note">"${esc(d.spine[PARTS[weakest.j].key]||"(blank)")}"</span></div>` : ""}
+      ${weakest ? `<div class="callout"><b>Sharpen first:</b> ${esc(PARTS[weakest.j].label)} &nbsp;<span class="note">${esc(d.spine[PARTS[weakest.j].key]||"(blank)")}</span></div>` : ""}
       ${d.comments.length ? `<details open><summary>${d.comments.length} note${d.comments.length===1?"":"s"} from the room</summary>
         ${d.comments.map(c=>`<div class="comment">${showNames?`<span class="who">${esc(c.from)}</span>`:""}${esc(c.text)}</div>`).join("")}
       </details>` : `<p class="note">No written notes.</p>`}
     </div>`;
   });
+  return html;
+}
 
-  body.innerHTML = html;
+function renderResults(){
+  if(!CFG) return;
+  $("#subCount").textContent = subs.length
+    ? subs.length + " of " + CFG.p.length + " people have submitted: " + subs.map(s=>s.n || (CFG.p[s.r]||{}).n || "?").join(", ")
+    : "No submissions yet.";
+  const body = $("#resultsBody");
+  AGG = aggregate().filter(d=>d.overall.n>0);
+
+  if(!subs.length || !AGG.length){
+    body.innerHTML = "";
+    $("#askCard").classList.add("hidden");
+    $("#resViewToggle").classList.add("hidden");
+    return;
+  }
+  $("#askCard").classList.remove("hidden");
+  $("#resViewToggle").classList.remove("hidden");
+  $("#askChips").innerHTML = ["top who","bottom who","top reject","bottom mechanism","biggest disagreement","best overall"]
+    .map(q=>`<button type="button" data-q="${q}">${q}</button>`).join("");
+  renderAsk();
+  body.innerHTML = resView==="component" ? byComponentHTML() : byPersonHTML($("#showNames").checked);
 }
 
 $("#exportCsv").addEventListener("click", ()=>{
