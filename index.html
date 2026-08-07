@@ -277,11 +277,15 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
   <section id="view-rate" class="hidden">
     <div id="rateGate">
       <span class="eyebrow">Step one</span>
-      <h2>Which one is yours?</h2>
-      <p class="lede">Pick your spine number. You'll rate all eight, your own included. This only tells the facilitator which submission is yours.</p>
+      <h2>Which spine is yours?</h2>
+      <p class="lede">Pick your spine number and put your name on it. You'll rate all eight, your own included.</p>
       <div class="card" style="max-width:340px">
         <label for="whoAmI">Your spine</label>
         <select id="whoAmI"></select>
+        <div style="margin-top:14px">
+          <label for="raterName">Your name</label>
+          <input type="text" id="raterName" placeholder="First name is fine" autocomplete="name">
+        </div>
         <div style="margin-top:14px"><button class="btn" id="startRating">Start rating</button></div>
       </div>
     </div>
@@ -313,7 +317,7 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
       <div id="codeOut" class="hidden" style="margin-top:22px">
         <span class="eyebrow">Done</span>
         <h2>Send this back</h2>
-        <p class="lede">Paste this code to the facilitator in Slack. It holds your scores and nothing else.</p>
+        <p class="lede">Paste this code to the facilitator in Slack. It holds your name, your scores and your notes — nothing else.</p>
         <div class="code" id="codeText"></div>
         <div class="row" style="margin-top:10px">
           <button class="btn small" id="copyCode">Copy code</button>
@@ -544,13 +548,20 @@ function buildRaterPicker(){
   if(!CFG) return;
   $("#whoAmI").innerHTML = `<option value="">Choose your spine</option>` +
     CFG.p.map((p,i)=>`<option value="${i}">${esc(p.n)}</option>`).join("");
+  const savedName = store.get("spine.myname");
+  if(savedName && !$("#raterName").value) $("#raterName").value = savedName;
 }
 $("#startRating").addEventListener("click", ()=>{
   const v = $("#whoAmI").value;
   if(v===""){ toast("Pick your spine first"); return; }
+  const nm = $("#raterName").value.trim();
+  if(!nm){ toast("Type your name first"); $("#raterName").focus(); return; }
   const idx = Number(v);
   const saved = store.get("spine.draft."+idx);
   draft = saved ? JSON.parse(saved) : {r:idx, s:{}, c:{}};
+  draft.nm = nm;
+  store.set("spine.myname", nm);
+  saveDraft();
   $("#rateGate").classList.add("hidden");
   $("#rateBody").classList.remove("hidden");
   renderRateList();
@@ -623,7 +634,7 @@ function updateProgress(){
   $("#finishBtn2").disabled = !ready;
 }
 function finish(){
-  const payload = {v:1, r:draft.r, n:CFG.p[draft.r].n, s:draft.s, c:{}};
+  const payload = {v:1, r:draft.r, n:draft.nm || CFG.p[draft.r].n, s:draft.s, c:{}};
   Object.keys(draft.c).forEach(k=>{ if((draft.c[k]||"").trim()) payload.c[k]=draft.c[k].trim(); });
   $("#codeText").textContent = enc(payload);
   $("#codeOut").classList.remove("hidden");
@@ -723,10 +734,16 @@ function parseAsk(q){
   const dir = tokens.some(t=>TOP_WORDS.includes(t)) ? "top"
             : tokens.some(t=>BOT_WORDS.includes(t)) ? "bottom" : null;
   const split = tokens.some(t=>SPLIT_WORDS.includes(t));
-  let person = null;
+  // score every candidate and keep the best, so "spine 3" beats a bare "spine"
+  let person = null, best = 0;
   AGG.forEach(d=>{
     const nameTokens = fold(d.name).split(/\s+/);
-    if(tokens.some(t=>t.length>2 && nameTokens.some(n=>n.startsWith(t)))) person = d;
+    let score = 0;
+    tokens.forEach(t=>nameTokens.forEach(n=>{
+      if(n===t) score += 3;                               // exact token, incl. "3"
+      else if(t.length>2 && n.startsWith(t)) score += 1;   // prefix, e.g. magn -> magnus
+    }));
+    if(score>best){ best = score; person = d; }
   });
   return {comp, dir, split, person, tokens};
 }

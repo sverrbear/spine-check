@@ -16,7 +16,7 @@ The eight spines from the August 2026 Smitten session are already committed as `
 ## Running the session
 
 1. Drop the plain URL in Slack. The spines load from `spines.json` — no setup step needed.
-2. Everyone opens it, picks their spine number, rates all 8, clicks **Finish**, and pastes the code back to you.
+2. Everyone opens it, picks which spine is theirs and types their name, rates all 8, clicks **Finish**, and pastes the code back to you.
 3. You open **Results**, paste all the codes into the box, and hit **Add codes**.
 
 To run it with a different set of spines: go to **Set up**, type them in, then either click **Make the rating link** and send that, or click **Download spines.json** and commit that file over the existing one.
@@ -32,6 +32,7 @@ To run it with a different set of spines: go to **Set up**, type them in, then e
 
 ## Notes
 
-- Codes are base64 JSON. Anyone who has a code can decode it, so this is not anonymous against a determined reader. It is anonymous enough for a room that is trying to be honest.
+- Spines are numbered, not named, so the room rates the writing rather than the writer. The rater's own name rides along in their code, which is how the facilitator knows who has submitted and who left which note.
+- Codes are base64 JSON. Anyone who has a code can decode it — including the rater's name and every score they gave — so this is not anonymous against a determined reader. It is anonymous enough for a room that is trying to be honest.
 - Submissions and drafts are kept in the browser's local storage. Clearing site data wipes them. Export the CSV if you want to keep the results.
 - Re-pasting a code from someone who already submitted overwrites their earlier one.
