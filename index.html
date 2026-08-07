@@ -175,6 +175,20 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
 .drop .note{display:block;margin-top:8px}
 .linkish{background:none;border:0;padding:0;font:inherit;color:var(--blue);text-decoration:underline;cursor:pointer}
 .linkish:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+.statusbar{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 18px;padding-bottom:10px;
+  border-bottom:1.5px solid var(--line);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+}
+.statusbar .sbgap{flex:1 1 auto}
+.statusbar .linkish{font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.sbcheck{display:flex;align-items:center;gap:6px;margin:0;font:inherit;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sbcheck input{width:auto}
+.live{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:0 0 auto;animation:pulse 2.4s ease-in-out infinite}
+.live.stale{background:var(--line);animation:none}
+.live.hit{background:var(--pink)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+body.dragging .wrap{outline:3px dashed var(--blue);outline-offset:-10px}
 
 /* ---------- ask + component view ---------- */
 .viewtoggle{display:flex;border:1.5px solid var(--ink);width:fit-content;max-width:100%;margin:0 0 16px}
@@ -344,21 +358,26 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
   <section id="view-results" class="hidden">
     <span class="eyebrow">Facilitator only</span>
     <h2>Results</h2>
-    <p class="lede">Anything committed to the <code>subs/</code> folder loads on its own. You can also drop the files straight in — nothing leaves this browser.</p>
+    <div class="statusbar">
+      <span class="live" id="liveDot"></span>
+      <span id="subCount">No submissions yet.</span>
+      <span class="sbgap"></span>
+      <label class="sbcheck"><input type="checkbox" id="showNames"> Show who said what</label>
+      <button type="button" class="linkish" id="exportCsv">CSV</button>
+      <button type="button" class="linkish" id="toggleIntake">Add files</button>
+    </div>
 
-    <div class="card">
+    <div id="resErr"></div>
+
+    <div class="card hidden" id="intakeCard">
       <div class="drop" id="drop">
         <b>Drop the .json files here</b>
         <input type="file" id="fileIn" multiple accept=".json,application/json" class="hidden">
         <span class="note">or <button type="button" class="linkish" id="pickFiles">choose them</button> — all eight at once is fine</span>
       </div>
       <div class="row" style="margin-top:12px">
-        <button class="btn" id="loadRepo">Reload from repo</button>
+        <button class="btn small" id="loadRepo">Reload from repo</button>
         <button class="btn ghost small" id="clearCodes">Clear all</button>
-        <button class="btn ghost small" id="exportCsv">Export CSV</button>
-        <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;font-family:inherit;font-size:14px;color:var(--ink)">
-          <input type="checkbox" id="showNames" style="width:auto"> Show who said what
-        </label>
       </div>
       <details style="margin-top:14px">
         <summary>Paste codes instead</summary>
@@ -367,8 +386,11 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
           <div class="row" style="margin-top:8px"><button class="btn small" id="addCodes">Add codes</button></div>
         </div>
       </details>
-      <div id="resErr" style="margin-top:12px"></div>
-      <p class="note" id="subCount" style="margin:10px 0 0"></p>
+    </div>
+
+    <div class="card hidden" id="emptyState">
+      <h3>Waiting for the first file</h3>
+      <p class="note" id="emptyNote">Watching the <code>subs/</code> folder. Anything committed there shows up here on its own — or drop the files straight onto this page.</p>
     </div>
 
     <div class="card hidden" id="askCard">
@@ -454,7 +476,8 @@ function show(view){
   const needsCfg = (view==="rate"||view==="results");
   $("#noConfig").classList.toggle("hidden", !(needsCfg && !CFG));
   if(needsCfg && !CFG) $("#view-"+view).classList.add("hidden");
-  if(view==="results") renderResults();
+  if(view==="results"){ renderResults(); pollOnce(); startPolling(); }
+  else stopPolling();
   window.scrollTo(0,0);
 }
 $("#stages").addEventListener("click", e=>{
@@ -741,12 +764,27 @@ async function ingestFiles(files){
 }
 $("#pickFiles").addEventListener("click", ()=>$("#fileIn").click());
 $("#fileIn").addEventListener("change", e=>{ ingestFiles(e.target.files); e.target.value=""; });
+/* drop anywhere on the page, not just on the little box */
 const dropZone = $("#drop");
-["dragenter","dragover"].forEach(ev=>dropZone.addEventListener(ev, e=>{ e.preventDefault(); dropZone.classList.add("over"); }));
-["dragleave","dragend"].forEach(ev=>dropZone.addEventListener(ev, ()=>dropZone.classList.remove("over")));
-dropZone.addEventListener("drop", e=>{
-  e.preventDefault(); dropZone.classList.remove("over");
-  ingestFiles(e.dataTransfer && e.dataTransfer.files);
+const hasFiles = e => !!e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes("Files");
+let dragDepth = 0;
+document.addEventListener("dragenter", e=>{
+  if(!hasFiles(e)) return;
+  dragDepth++; document.body.classList.add("dragging");
+});
+document.addEventListener("dragover", e=>{
+  if(!hasFiles(e)) return;
+  e.preventDefault();
+  dropZone.classList.toggle("over", dropZone.contains(e.target));
+});
+document.addEventListener("dragleave", ()=>{
+  if(--dragDepth<=0){ dragDepth=0; document.body.classList.remove("dragging"); dropZone.classList.remove("over"); }
+});
+document.addEventListener("drop", e=>{
+  if(!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0; document.body.classList.remove("dragging"); dropZone.classList.remove("over");
+  ingestFiles(e.dataTransfer.files);
 });
 
 /* ---- the subs/ folder in the repo this page is served from ---- */
@@ -756,17 +794,30 @@ function repoBase(){
   const seg = location.pathname.split("/").filter(Boolean)[0];
   return {owner:m[1], repo: seg || (m[1]+".github.io")};
 }
-async function loadFromRepo(quiet){
+/* Conditional GETs: GitHub does not bill a 304 against the 60/hr anonymous
+   limit, so the poll can sit on subs/ all session without running dry. */
+let listEtag = null, lastSig = "", pollTimer = null;
+const POLL_MS = 20000, POLL_MAX = 300000;
+let pollDelay = POLL_MS;
+
+async function listSubs(useEtag){
   const b = repoBase();
-  if(!b){ if(!quiet) toast("Not a GitHub Pages URL"); return; }
-  let files;
-  try{
-    const r = await fetch(`https://api.github.com/repos/${b.owner}/${b.repo}/contents/subs`, {cache:"no-store"});
-    if(!r.ok){ if(!quiet) toast(r.status===404 ? "No subs/ folder yet" : "GitHub said "+r.status); return; }
-    const listing = await r.json();
-    files = (Array.isArray(listing) ? listing : []).filter(f=>f.type==="file" && /\.json$/i.test(f.name));
-  }catch(e){ if(!quiet) toast("Could not reach GitHub"); return; }
-  if(!files.length){ if(!quiet) toast("Nothing in subs/ yet"); return; }
+  if(!b) return {status:"nourl"};
+  const headers = {"Accept":"application/vnd.github+json"};
+  if(useEtag && listEtag) headers["If-None-Match"] = listEtag;
+  let r;
+  try{ r = await fetch(`https://api.github.com/repos/${b.owner}/${b.repo}/contents/subs`, {headers}); }
+  catch(e){ return {status:"neterr"}; }
+  if(r.status===304) return {status:"unchanged"};
+  if(r.status===403 || r.status===429) return {status:"limited"};
+  if(r.status===404) return {status:"nofolder"};
+  if(!r.ok) return {status:"http", code:r.status};
+  const et = r.headers.get("ETag"); if(et) listEtag = et;
+  let listing; try{ listing = await r.json(); }catch(e){ return {status:"neterr"}; }
+  return {status:"ok", files:(Array.isArray(listing)?listing:[]).filter(f=>f.type==="file" && /\.json$/i.test(f.name))};
+}
+
+async function pullFiles(files, quiet){
   const errs=[]; let added=0, updated=0;
   await Promise.all(files.map(async f=>{
     try{
@@ -777,10 +828,60 @@ async function loadFromRepo(quiet){
       });
     }catch(e){ errs.push(f.name); }
   }));
-  if(quiet && !added && !updated && !errs.length) return;
-  finishIntake(added, updated, errs, quiet);
+  if(added || updated || errs.length) finishIntake(added, updated, errs, quiet);
+  return added+updated;
 }
+
+async function loadFromRepo(quiet){
+  const res = await listSubs(false);
+  const msg = {nourl:"Not a GitHub Pages URL", neterr:"Could not reach GitHub",
+               limited:"GitHub rate limit — try in a minute", nofolder:"No subs/ folder yet"}[res.status];
+  if(msg){ if(!quiet) toast(msg); setLive(res.status==="ok"); return; }
+  if(res.status!=="ok"){ if(!quiet) toast("GitHub said "+res.code); return; }
+  setLive(true);
+  lastSig = res.files.map(f=>f.name+":"+f.sha).join("|");
+  if(!res.files.length){ if(!quiet) toast("Nothing in subs/ yet"); return; }
+  const n = await pullFiles(res.files, quiet);
+  if(!quiet && !n) toast("Already up to date");
+}
+
+async function pollOnce(){
+  const res = await listSubs(true);
+  if(res.status==="limited"){ pollDelay = Math.min(pollDelay*2, POLL_MAX); setLive(false); return; }
+  if(res.status==="neterr"){ setLive(false); return; }
+  pollDelay = POLL_MS;
+  if(res.status==="unchanged"){ setLive(true); return; }
+  if(res.status!=="ok"){ setLive(false); return; }
+  setLive(true);
+  const sig = res.files.map(f=>f.name+":"+f.sha).join("|");
+  if(sig===lastSig) return;
+  lastSig = sig;
+  const n = await pullFiles(res.files, true);
+  if(n){ flashLive(); toast(n+" new submission"+(n===1?"":"s")); }
+}
+
+function setLive(on){ $("#liveDot").classList.toggle("stale", !on); }
+function flashLive(){
+  const d=$("#liveDot"); d.classList.add("hit");
+  clearTimeout(d._h); d._h=setTimeout(()=>d.classList.remove("hit"), 1200);
+}
+function startPolling(){
+  if(pollTimer || !repoBase()) return;
+  const tick = async ()=>{ await pollOnce(); pollTimer = setTimeout(tick, pollDelay); };
+  pollTimer = setTimeout(tick, pollDelay);
+}
+function stopPolling(){ clearTimeout(pollTimer); pollTimer = null; }
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden) stopPolling();
+  else if(!$("#view-results").classList.contains("hidden")){ pollOnce(); startPolling(); }
+});
+
 $("#loadRepo").addEventListener("click", ()=>loadFromRepo(false));
+$("#toggleIntake").addEventListener("click", ()=>{
+  const c = $("#intakeCard"), hidden = c.classList.toggle("hidden");
+  $("#toggleIntake").textContent = hidden ? "Add files" : "Hide";
+  if(!hidden) c.scrollIntoView({behavior:"smooth", block:"nearest"});
+});
 $("#clearCodes").addEventListener("click", ()=>{
   if(!confirm("Delete all submissions from this browser?")) return;
   subs=[]; saveSubs(); renderResults(); toast("Cleared");
@@ -1028,13 +1129,16 @@ function byPersonHTML(showNames){
 
 function renderResults(){
   if(!CFG) return;
+  const who = subs.map(s=>s.n || (CFG.p[s.r]||{}).n || "?").join(", ");
   $("#subCount").textContent = subs.length
-    ? subs.length + " of " + CFG.p.length + " people have submitted: " + subs.map(s=>s.n || (CFG.p[s.r]||{}).n || "?").join(", ")
-    : "No submissions yet.";
+    ? subs.length + " of " + CFG.p.length + " in — " + who
+    : "No submissions yet";
   const body = $("#resultsBody");
   AGG = aggregate().filter(d=>d.overall.n>0);
 
-  if(!subs.length || !AGG.length){
+  const empty = !subs.length || !AGG.length;
+  $("#emptyState").classList.toggle("hidden", !empty);
+  if(empty){
     body.innerHTML = "";
     $("#askCard").classList.add("hidden");
     $("#resViewToggle").classList.add("hidden");
