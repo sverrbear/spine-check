@@ -99,7 +99,6 @@ input[type=text]:focus,textarea:focus,select:focus{outline:0;border-color:var(--
   color:var(--muted);display:block;margin-bottom:2px;
 }
 .vert .vtext{font-size:14.5px}
-.vert .vhint{font-size:12px;color:var(--muted);margin-top:2px}
 
 /* ---------- rating ---------- */
 .scale{display:flex;gap:5px;margin-top:9px}
@@ -632,7 +631,6 @@ function renderRateList(){
           <div class="vert">
             <span class="vlabel">${part.label}</span>
             <div class="vtext">${esc(p[part.key]) || '<span class="note">(left blank)</span>'}</div>
-            <div class="vhint">${esc(part.hint)}</div>
             <div class="scale" data-part="${j}">
               ${[1,2,3,4,5].map(v=>`<button type="button" data-v="${v}" aria-pressed="${scores[j]===v}" aria-label="${part.label} score ${v}">${v}</button>`).join("")}
             </div>
