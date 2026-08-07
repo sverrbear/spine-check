@@ -794,11 +794,21 @@ function repoBase(){
   const seg = location.pathname.split("/").filter(Boolean)[0];
   return {owner:m[1], repo: seg || (m[1]+".github.io")};
 }
-/* Conditional GETs: GitHub does not bill a 304 against the 60/hr anonymous
-   limit, so the poll can sit on subs/ all session without running dry. */
+/* Anonymous GitHub API is 60 requests/hr per IP, and a 304 still costs one
+   (measured — the docs claim otherwise). So poll a minute apart and read the
+   budget off each response: when it runs thin, sleep until the window resets
+   rather than hammering into a 403. */
 let listEtag = null, lastSig = "", pollTimer = null;
-const POLL_MS = 20000, POLL_MAX = 300000;
+const POLL_MS = 60000, POLL_MAX = 600000;
 let pollDelay = POLL_MS;
+
+function budgetDelay(h){
+  const left = Number(h.get("x-ratelimit-remaining"));
+  if(!Number.isFinite(left) || left > 8) return POLL_MS;
+  const reset = Number(h.get("x-ratelimit-reset")) * 1000;
+  const wait = Number.isFinite(reset) ? reset - Date.now() + 2000 : POLL_MAX;
+  return Math.max(POLL_MS, Math.min(wait, POLL_MAX));
+}
 
 async function listSubs(useEtag){
   const b = repoBase();
@@ -808,13 +818,14 @@ async function listSubs(useEtag){
   let r;
   try{ r = await fetch(`https://api.github.com/repos/${b.owner}/${b.repo}/contents/subs`, {headers}); }
   catch(e){ return {status:"neterr"}; }
-  if(r.status===304) return {status:"unchanged"};
-  if(r.status===403 || r.status===429) return {status:"limited"};
-  if(r.status===404) return {status:"nofolder"};
-  if(!r.ok) return {status:"http", code:r.status};
+  const wait = budgetDelay(r.headers);
+  if(r.status===304) return {status:"unchanged", wait};
+  if(r.status===403 || r.status===429) return {status:"limited", wait};
+  if(r.status===404) return {status:"nofolder", wait};
+  if(!r.ok) return {status:"http", code:r.status, wait};
   const et = r.headers.get("ETag"); if(et) listEtag = et;
   let listing; try{ listing = await r.json(); }catch(e){ return {status:"neterr"}; }
-  return {status:"ok", files:(Array.isArray(listing)?listing:[]).filter(f=>f.type==="file" && /\.json$/i.test(f.name))};
+  return {status:"ok", wait, files:(Array.isArray(listing)?listing:[]).filter(f=>f.type==="file" && /\.json$/i.test(f.name))};
 }
 
 async function pullFiles(files, quiet){
@@ -847,9 +858,9 @@ async function loadFromRepo(quiet){
 
 async function pollOnce(){
   const res = await listSubs(true);
-  if(res.status==="limited"){ pollDelay = Math.min(pollDelay*2, POLL_MAX); setLive(false); return; }
-  if(res.status==="neterr"){ setLive(false); return; }
-  pollDelay = POLL_MS;
+  if(res.status==="neterr"){ pollDelay = POLL_MAX; setLive(false); return; }
+  pollDelay = res.wait || POLL_MS;
+  if(res.status==="limited"){ setLive(false); return; }
   if(res.status==="unchanged"){ setLive(true); return; }
   if(res.status!=="ok"){ setLive(false); return; }
   setLive(true);
