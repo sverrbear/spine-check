@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spine Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E4E4DE;
+  --paper-2:#EDEDE8;
+  --ink:#16171B;
+  --muted:#6B6C70;
+  --line:#C6C6BE;
+  --blue:#1932C4;
+  --pink:#FF4D9D;
+  --plum:#8A2E9B;
+  --ok:#1932C4;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;overflow-x:hidden}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.35;
+  background-image:radial-gradient(var(--line) .6px, transparent .6px);
+  background-size:4px 4px;
+}
+.wrap{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:0 20px 100px}
+
+/* ---------- masthead ---------- */
+.masthead{padding:28px 0 18px;border-bottom:2px solid var(--ink);margin-bottom:26px}
+.mark{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.mark h1{
+  font-family:Anton,Impact,sans-serif;font-weight:400;font-size:clamp(34px,7vw,54px);
+  letter-spacing:.01em;text-transform:uppercase;margin:0;line-height:.92;
+}
+.mark h1 em{font-style:normal;color:var(--pink)}
+.mark .sub{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);
+}
+.stages{display:flex;gap:0;margin-top:18px;border:1.5px solid var(--ink);width:fit-content;max-width:100%;flex-wrap:wrap}
+.stages button{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  background:transparent;border:0;border-right:1.5px solid var(--ink);padding:9px 14px;cursor:pointer;color:var(--ink);
+}
+.stages button:last-child{border-right:0}
+.stages button[aria-current="true"]{background:var(--ink);color:var(--paper)}
+.stages button:focus-visible{outline:3px solid var(--pink);outline-offset:-3px}
+
+/* ---------- generic ---------- */
+h2{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;font-size:24px;letter-spacing:.02em;margin:0 0 4px}
+h3{font-size:16px;margin:0 0 4px}
+.lede{color:var(--muted);max-width:62ch;margin:0 0 22px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+.hidden{display:none !important}
+label{display:block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+input[type=text],textarea,select{
+  width:100%;font-family:inherit;font-size:15px;color:var(--ink);background:var(--paper-2);
+  border:1.5px solid var(--line);border-radius:0;padding:9px 11px;
+}
+textarea{resize:vertical;min-height:44px}
+input[type=text]:focus,textarea:focus,select:focus{outline:0;border-color:var(--blue);background:#fff}
+.btn{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  background:var(--ink);color:var(--paper);border:1.5px solid var(--ink);padding:11px 18px;cursor:pointer;
+}
+.btn:hover{background:var(--blue);border-color:var(--blue)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.ghost:hover{background:var(--ink);color:var(--paper)}
+.btn.small{padding:7px 11px;font-size:11px}
+.btn:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.note{font-size:13px;color:var(--muted)}
+.card{background:var(--paper-2);border:1.5px solid var(--ink);padding:18px;margin-bottom:16px}
+.divider{height:1.5px;background:var(--line);margin:26px 0}
+
+/* ---------- spine graphic ---------- */
+.spine{display:flex;flex-direction:column;gap:4px}
+.vert{
+  border:1.5px solid var(--ink);background:var(--paper-2);padding:10px 12px;position:relative;
+}
+.vert::after{
+  content:"";position:absolute;right:-1.5px;top:50%;transform:translateY(-50%);
+  width:8px;height:14px;border:1.5px solid var(--ink);border-left:0;background:var(--paper-2);
+}
+.vert .vlabel{
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:2px;
+}
+.vert .vtext{font-size:14.5px}
+.vert .vhint{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ---------- rating ---------- */
+.scale{display:flex;gap:5px;margin-top:9px}
+.scale button{
+  font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;width:36px;height:34px;
+  border:1.5px solid var(--ink);background:transparent;cursor:pointer;color:var(--ink);
+}
+.scale button:hover{background:var(--line)}
+.scale button:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+.scale button[aria-pressed="true"]{color:#fff}
+.scale button[aria-pressed="true"][data-v="1"],
+.scale button[aria-pressed="true"][data-v="2"]{background:var(--pink);border-color:var(--pink)}
+.scale button[aria-pressed="true"][data-v="3"]{background:var(--plum);border-color:var(--plum)}
+.scale button[aria-pressed="true"][data-v="4"],
+.scale button[aria-pressed="true"][data-v="5"]{background:var(--blue);border-color:var(--blue)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.legend span b{color:var(--ink);font-weight:600}
+
+.person-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:14px;flex-wrap:wrap}
+.person-head .name{font-family:Anton,Impact,sans-serif;font-size:26px;text-transform:uppercase;letter-spacing:.02em}
+.person-head .meta{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+.progress{
+  position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1.5px solid var(--ink);
+  padding:10px 0;margin-bottom:18px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+}
+.bar{height:6px;background:var(--line);flex:1 1 140px;min-width:100px}
+.bar i{display:block;height:100%;background:var(--blue);width:0%;transition:width .25s ease}
+
+/* ---------- code block ---------- */
+.code{
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;word-break:break-all;background:var(--ink);color:#F2F2EC;
+  padding:14px;line-height:1.45;
+}
+.code.light{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
+
+/* ---------- results ---------- */
+.rank{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.rank .pos{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);width:22px}
+.rank .nm{flex:1 1 auto;font-weight:500}
+.rank .track{flex:0 0 42%;height:14px;background:var(--paper);border:1.5px solid var(--ink);position:relative}
+.rank .track i{display:block;height:100%;background:var(--blue)}
+.rank .val{font-family:"IBM Plex Mono",monospace;font-weight:600;width:44px;text-align:right}
+
+.scorespine{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.srow{display:grid;grid-template-columns:92px 1fr 78px;gap:10px;align-items:center}
+.srow .sl{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.srow .sb{height:20px;border:1.5px solid var(--ink);background:var(--paper);position:relative;overflow:hidden}
+.srow .sb i{display:block;height:100%}
+.srow .sv{font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:right}
+.srow .sv em{font-style:normal;color:var(--muted)}
+.flag{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  border:1.5px solid var(--pink);color:var(--pink);padding:2px 6px;margin-left:6px;
+}
+.callout{border-left:4px solid var(--pink);padding:6px 0 6px 12px;margin:14px 0;font-size:14px}
+.comment{border-top:1px solid var(--line);padding:8px 0;font-size:14px}
+.comment .who{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:block}
+details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--blue);color:#fff;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  padding:10px 18px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s
+}
+.toast.show{opacity:1}
+.setup-person{border:1.5px solid var(--ink);background:var(--paper-2);padding:16px;margin-bottom:14px}
+.grid5{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+.err{border:1.5px solid var(--pink);background:#fff;padding:10px 12px;font-size:14px;margin-bottom:12px}
+@media (max-width:600px){
+  .srow{grid-template-columns:74px 1fr 66px}
+  .rank .track{flex-basis:34%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="mark">
+      <h1>Spine<em>.</em>Check</h1>
+      <span class="sub" id="wsTitle">Brand spine workshop</span>
+    </div>
+    <nav class="stages" id="stages">
+      <button data-go="setup">1 / Set up</button>
+      <button data-go="rate">2 / Rate</button>
+      <button data-go="results">3 / Results</button>
+    </nav>
+  </header>
+
+  <!-- =============== SETUP =============== -->
+  <section id="view-setup" class="hidden">
+    <span class="eyebrow">Facilitator only</span>
+    <h2>Load the spines</h2>
+    <p class="lede">Type each person's spine in once. You get a link to send the room. Everyone rates everyone except themselves.</p>
+
+    <div class="card">
+      <label for="titleInput">Workshop name</label>
+      <input type="text" id="titleInput" placeholder="Smitten brand spine, August 2026">
+    </div>
+
+    <div id="setupList"></div>
+
+    <div class="row" style="margin-bottom:22px">
+      <button class="btn ghost small" id="addPerson">+ Add a person</button>
+      <span class="note" id="countNote"></span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <button class="btn" id="makeLink">Make the rating link</button>
+      <button class="btn ghost" id="dlJson">Download spines.json</button>
+    </div>
+    <div id="linkOut" class="hidden" style="margin-top:18px">
+      <label>Send this to the room</label>
+      <div class="code light" id="linkText"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn small" id="copyLink">Copy link</button>
+        <span class="note">Everything is inside the link. Nothing is stored anywhere.</span>
+      </div>
+    </div>
+    <p class="note" style="margin-top:22px">Long link? Put <code>spines.json</code> next to <code>index.html</code> in the repo and the app loads it on its own, so the plain URL works.</p>
+  </section>
+
+  <!-- =============== RATE =============== -->
+  <section id="view-rate" class="hidden">
+    <div id="rateGate">
+      <span class="eyebrow">Step one</span>
+      <h2>Who are you?</h2>
+      <p class="lede">Pick your name. You'll rate the other spines, not your own.</p>
+      <div class="card" style="max-width:340px">
+        <label for="whoAmI">Your name</label>
+        <select id="whoAmI"></select>
+        <div style="margin-top:14px"><button class="btn" id="startRating">Start rating</button></div>
+      </div>
+    </div>
+
+    <div id="rateBody" class="hidden">
+      <div class="progress">
+        <span id="progText">0 of 0 rated</span>
+        <span class="bar"><i id="progBar"></i></span>
+        <button class="btn small" id="finishBtn" disabled>Finish</button>
+      </div>
+
+      <div class="card" style="background:var(--paper)">
+        <span class="eyebrow">How to score</span>
+        <div class="legend">
+          <span><b>1</b> could be anyone</span>
+          <span><b>2</b> vague</span>
+          <span><b>3</b> workable</span>
+          <span><b>4</b> sharp</span>
+          <span><b>5</b> unmistakable</span>
+        </div>
+        <p class="note" style="margin:10px 0 0">Score the line as written, not the person or the idea behind it. If you find yourself filling in what they meant, that's a 2.</p>
+      </div>
+
+      <div id="rateList"></div>
+
+      <div class="divider"></div>
+      <div class="row"><button class="btn" id="finishBtn2" disabled>Finish and get my code</button></div>
+
+      <div id="codeOut" class="hidden" style="margin-top:22px">
+        <span class="eyebrow">Done</span>
+        <h2>Send this back</h2>
+        <p class="lede">Paste this code to the facilitator in Slack. It holds your scores and nothing else.</p>
+        <div class="code" id="codeText"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn small" id="copyCode">Copy code</button>
+          <button class="btn ghost small" id="editAgain">Go back and change something</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============== RESULTS =============== -->
+  <section id="view-results" class="hidden">
+    <span class="eyebrow">Facilitator only</span>
+    <h2>Results</h2>
+    <p class="lede">Paste the codes from the room, one per line. They stay in this browser.</p>
+
+    <div class="card">
+      <label for="codeIn">Codes</label>
+      <textarea id="codeIn" rows="4" placeholder="eyJyIjowLCJz..."></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="addCodes">Add codes</button>
+        <button class="btn ghost small" id="clearCodes">Clear all</button>
+        <button class="btn ghost small" id="exportCsv">Export CSV</button>
+        <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:0;font-family:inherit;font-size:14px;color:var(--ink)">
+          <input type="checkbox" id="showNames" style="width:auto"> Show who said what
+        </label>
+      </div>
+      <div id="resErr"></div>
+      <p class="note" id="subCount" style="margin:10px 0 0"></p>
+    </div>
+
+    <div id="resultsBody"></div>
+  </section>
+
+  <div id="noConfig" class="hidden">
+    <div class="card">
+      <h3>No spines loaded</h3>
+      <p class="note">Open the workshop link you were sent, or go to <b>Set up</b> and enter the spines.</p>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------------- constants ---------------- */
+const PARTS = [
+  {key:"who",      label:"Who",       hint:"The one person this is for. Sharp enough to name three real people who fit."},
+  {key:"outcome",  label:"Outcome",   hint:"What changes for them. Concrete, not a feeling."},
+  {key:"mechanism",label:"Mechanism", hint:"How the change happens. Should not be swappable with a competitor's."},
+  {key:"quality",  label:"Quality",   hint:"The standard the work is held to. A bar you could fail."},
+  {key:"reject",   label:"Reject",    hint:"What this refuses to do. Should cost something real."}
+];
+const SD_FLAG = 1.1;
+
+/* ---------------- storage (degrades quietly) ---------------- */
+const mem = {};
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+};
+
+/* ---------------- base64url with unicode ---------------- */
+function enc(obj){
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let bin=""; bytes.forEach(b=>bin+=String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function dec(str){
+  let s = String(str).trim().replace(/-/g,"+").replace(/_/g,"/");
+  while(s.length % 4) s += "=";
+  const bin = atob(s);
+  const bytes = Uint8Array.from(bin, c=>c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+/* ---------------- state ---------------- */
+let CFG = null;          // {t:title, p:[{n:name, who,outcome,mechanism,quality,reject}]}
+let draft = null;        // {r:raterIndex, s:{idx:[5 scores]}, c:{idx:comment}}
+let subs = [];           // parsed submissions
+
+const $  = s=>document.querySelector(s);
+const $$ = s=>Array.from(document.querySelectorAll(s));
+const esc = s => String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+/* ---------------- routing ---------------- */
+function show(view){
+  ["setup","rate","results"].forEach(v=>{
+    $("#view-"+v).classList.toggle("hidden", v!==view);
+    $$("#stages button").forEach(b=>b.setAttribute("aria-current", String(b.dataset.go===view)));
+  });
+  const needsCfg = (view==="rate"||view==="results");
+  $("#noConfig").classList.toggle("hidden", !(needsCfg && !CFG));
+  if(needsCfg && !CFG) $("#view-"+view).classList.add("hidden");
+  if(view==="results") renderResults();
+  window.scrollTo(0,0);
+}
+$("#stages").addEventListener("click", e=>{
+  const b=e.target.closest("button[data-go]"); if(!b) return;
+  location.hash = b.dataset.go==="setup" ? "#setup" : (b.dataset.go==="rate" ? currentRateHash() : "#results");
+  show(b.dataset.go);
+});
+function currentRateHash(){
+  return CFG ? "#s="+enc(CFG) : "#rate";
+}
+
+/* ---------------- boot ---------------- */
+async function boot(){
+  const h = location.hash.slice(1);
+  if(h.startsWith("s=")){
+    try{ CFG = dec(h.slice(2)); store.set("spine.cfg", JSON.stringify(CFG)); }
+    catch(e){ console.warn("bad link payload", e); }
+  }
+  if(!CFG){
+    try{
+      const r = await fetch("./spines.json", {cache:"no-store"});
+      if(r.ok){ const j = await r.json(); if(j && Array.isArray(j.p)) CFG = j; }
+    }catch(e){ /* no file, fine */ }
+  }
+  if(!CFG){
+    const saved = store.get("spine.cfg");
+    if(saved){ try{ CFG = JSON.parse(saved); }catch(e){} }
+  }
+  if(CFG && CFG.t) $("#wsTitle").textContent = CFG.t;
+
+  loadSubs();
+  buildSetup();
+  if(CFG){ buildRaterPicker(); show("rate"); }
+  else { show("setup"); }
+}
+
+/* ================= SETUP ================= */
+function blankPerson(){ return {n:"", who:"", outcome:"", mechanism:"", quality:"", reject:""}; }
+
+function buildSetup(){
+  const list = $("#setupList");
+  const people = (CFG && CFG.p && CFG.p.length) ? CFG.p : Array.from({length:8}, blankPerson);
+  if(CFG && CFG.t) $("#titleInput").value = CFG.t;
+  list.innerHTML = people.map((p,i)=>setupCard(p,i)).join("");
+  $("#countNote").textContent = people.length + " people";
+  growAll();
+}
+function setupCard(p,i){
+  return `<div class="setup-person" data-i="${i}">
+    <div class="row" style="justify-content:space-between">
+      <div style="flex:1 1 220px">
+        <label>Name</label>
+        <input type="text" data-f="n" value="${esc(p.n)}" placeholder="Name">
+      </div>
+      <button class="btn ghost small" data-remove="${i}">Remove</button>
+    </div>
+    <div class="grid5">
+      ${PARTS.map(part=>`
+        <div>
+          <label>${part.label}</label>
+          <textarea data-f="${part.key}" rows="1" placeholder="${esc(part.hint)}">${esc(p[part.key])}</textarea>
+        </div>`).join("")}
+    </div>
+  </div>`;
+}
+function readSetup(){
+  const p = $$("#setupList .setup-person").map(el=>{
+    const o={};
+    el.querySelectorAll("[data-f]").forEach(f=>o[f.dataset.f]=f.value.trim());
+    return o;
+  }).filter(o=>o.n);
+  return {t: $("#titleInput").value.trim() || "Brand spine workshop", p};
+}
+$("#addPerson").addEventListener("click", ()=>{
+  const list=$("#setupList");
+  list.insertAdjacentHTML("beforeend", setupCard(blankPerson(), list.children.length));
+  $("#countNote").textContent = list.children.length + " people";
+});
+$("#setupList").addEventListener("click", e=>{
+  const b=e.target.closest("[data-remove]"); if(!b) return;
+  b.closest(".setup-person").remove();
+  $("#countNote").textContent = $("#setupList").children.length + " people";
+});
+$("#makeLink").addEventListener("click", ()=>{
+  const cfg = readSetup();
+  if(cfg.p.length < 2){ toast("Add at least two people"); return; }
+  CFG = cfg;
+  store.set("spine.cfg", JSON.stringify(CFG));
+  $("#wsTitle").textContent = CFG.t;
+  const url = location.origin + location.pathname + "#s=" + enc(CFG);
+  $("#linkText").textContent = url;
+  $("#linkOut").classList.remove("hidden");
+  buildRaterPicker();
+});
+$("#copyLink").addEventListener("click", ()=>copy($("#linkText").textContent, "Link copied"));
+$("#dlJson").addEventListener("click", ()=>{
+  const cfg = readSetup();
+  if(!cfg.p.length){ toast("Nothing to download yet"); return; }
+  const blob = new Blob([JSON.stringify(cfg,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="spines.json"; a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+function copy(text, msg){
+  navigator.clipboard.writeText(text).then(()=>toast(msg||"Copied")).catch(()=>{
+    const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove(); toast(msg||"Copied");
+  });
+}
+
+/* ================= RATE ================= */
+function buildRaterPicker(){
+  if(!CFG) return;
+  $("#whoAmI").innerHTML = `<option value="">Choose your name</option>` +
+    CFG.p.map((p,i)=>`<option value="${i}">${esc(p.n)}</option>`).join("");
+}
+$("#startRating").addEventListener("click", ()=>{
+  const v = $("#whoAmI").value;
+  if(v===""){ toast("Pick your name first"); return; }
+  const idx = Number(v);
+  const saved = store.get("spine.draft."+idx);
+  draft = saved ? JSON.parse(saved) : {r:idx, s:{}, c:{}};
+  $("#rateGate").classList.add("hidden");
+  $("#rateBody").classList.remove("hidden");
+  renderRateList();
+});
+
+function renderRateList(){
+  const list = $("#rateList");
+  list.innerHTML = CFG.p.map((p,i)=>{
+    if(i===draft.r) return "";
+    const scores = draft.s[i] || [0,0,0,0,0];
+    return `<div class="card" data-p="${i}">
+      <div class="person-head">
+        <span class="name">${esc(p.n)}</span>
+        <span class="meta" id="pm-${i}"></span>
+      </div>
+      <div class="spine">
+        ${PARTS.map((part,j)=>`
+          <div class="vert">
+            <span class="vlabel">${part.label}</span>
+            <div class="vtext">${esc(p[part.key]) || '<span class="note">(left blank)</span>'}</div>
+            <div class="vhint">${esc(part.hint)}</div>
+            <div class="scale" data-part="${j}">
+              ${[1,2,3,4,5].map(v=>`<button type="button" data-v="${v}" aria-pressed="${scores[j]===v}" aria-label="${part.label} score ${v}">${v}</button>`).join("")}
+            </div>
+          </div>`).join("")}
+      </div>
+      <div style="margin-top:14px">
+        <label>One thing they should fix (optional)</label>
+        <textarea data-comment="${i}" rows="2" placeholder="Be specific. Point at a word.">${esc(draft.c[i]||"")}</textarea>
+      </div>
+    </div>`;
+  }).join("");
+  growAll();
+  updateProgress();
+}
+
+$("#rateList").addEventListener("click", e=>{
+  const b = e.target.closest(".scale button"); if(!b) return;
+  const card = b.closest("[data-p]");
+  const pi = Number(card.dataset.p);
+  const part = Number(b.closest(".scale").dataset.part);
+  const val = Number(b.dataset.v);
+  if(!draft.s[pi]) draft.s[pi]=[0,0,0,0,0];
+  draft.s[pi][part] = draft.s[pi][part]===val ? 0 : val;
+  b.closest(".scale").querySelectorAll("button").forEach(x=>{
+    x.setAttribute("aria-pressed", String(Number(x.dataset.v)===draft.s[pi][part]));
+  });
+  saveDraft(); updateProgress();
+});
+$("#rateList").addEventListener("input", e=>{
+  const t = e.target.closest("[data-comment]"); if(!t) return;
+  draft.c[Number(t.dataset.comment)] = t.value;
+  saveDraft();
+});
+function saveDraft(){ store.set("spine.draft."+draft.r, JSON.stringify(draft)); }
+
+function updateProgress(){
+  const others = CFG.p.map((_,i)=>i).filter(i=>i!==draft.r);
+  let done = 0;
+  others.forEach(i=>{
+    const s = draft.s[i]||[];
+    const full = s.length===5 && s.every(v=>v>=1);
+    if(full) done++;
+    const m = $("#pm-"+i);
+    if(m) m.textContent = full ? "complete" : ((s.filter(v=>v>=1).length||0) + " of 5");
+  });
+  $("#progText").textContent = done + " of " + others.length + " rated";
+  $("#progBar").style.width = (others.length ? (done/others.length*100) : 0) + "%";
+  const ready = done===others.length;
+  $("#finishBtn").disabled = !ready;
+  $("#finishBtn2").disabled = !ready;
+}
+function finish(){
+  const payload = {v:1, r:draft.r, n:CFG.p[draft.r].n, s:draft.s, c:{}};
+  Object.keys(draft.c).forEach(k=>{ if((draft.c[k]||"").trim()) payload.c[k]=draft.c[k].trim(); });
+  $("#codeText").textContent = enc(payload);
+  $("#codeOut").classList.remove("hidden");
+  $("#codeOut").scrollIntoView({behavior:"smooth", block:"start"});
+}
+$("#finishBtn").addEventListener("click", finish);
+$("#finishBtn2").addEventListener("click", finish);
+$("#copyCode").addEventListener("click", ()=>copy($("#codeText").textContent, "Code copied"));
+$("#editAgain").addEventListener("click", ()=>{
+  $("#codeOut").classList.add("hidden");
+  $("#rateList").scrollIntoView({behavior:"smooth"});
+});
+
+/* ================= RESULTS ================= */
+function loadSubs(){
+  const raw = store.get("spine.subs");
+  subs = raw ? JSON.parse(raw) : [];
+}
+function saveSubs(){ store.set("spine.subs", JSON.stringify(subs)); }
+
+$("#addCodes").addEventListener("click", ()=>{
+  const lines = $("#codeIn").value.split(/[\s\n]+/).map(s=>s.trim()).filter(Boolean);
+  const errs=[]; let added=0, replaced=0;
+  lines.forEach(l=>{
+    let obj; try{ obj = dec(l); }catch(e){ errs.push(l.slice(0,14)+"..."); return; }
+    if(typeof obj.r!=="number" || !obj.s){ errs.push(l.slice(0,14)+"..."); return; }
+    const existing = subs.findIndex(s=>s.r===obj.r);
+    if(existing>=0){ subs[existing]=obj; replaced++; } else { subs.push(obj); added++; }
+  });
+  saveSubs();
+  $("#codeIn").value="";
+  $("#resErr").innerHTML = errs.length ? `<div class="err">Could not read ${errs.length} code${errs.length>1?"s":""}: ${esc(errs.join(", "))}. Ask them to copy the whole thing again.</div>` : "";
+  toast(added+" added, "+replaced+" updated");
+  renderResults();
+});
+$("#clearCodes").addEventListener("click", ()=>{
+  if(!confirm("Delete all submissions from this browser?")) return;
+  subs=[]; saveSubs(); renderResults(); toast("Cleared");
+});
+$("#showNames").addEventListener("change", renderResults);
+
+function stats(arr){
+  const n=arr.length; if(!n) return {mean:0,sd:0,n:0};
+  const mean = arr.reduce((a,b)=>a+b,0)/n;
+  const sd = Math.sqrt(arr.reduce((a,b)=>a+(b-mean)**2,0)/n);
+  return {mean, sd, n};
+}
+function shade(v){ return v<2.5 ? "var(--pink)" : (v<3.5 ? "var(--plum)" : "var(--blue)"); }
+
+function aggregate(){
+  if(!CFG) return [];
+  return CFG.p.map((p,i)=>{
+    const perPart = PARTS.map(()=>[]);
+    const comments = [];
+    subs.forEach(sub=>{
+      const sc = sub.s[i] || sub.s[String(i)];
+      if(sc && sc.length===5 && sc.every(v=>v>=1)){ sc.forEach((v,j)=>perPart[j].push(v)); }
+      const cm = (sub.c||{})[i] ?? (sub.c||{})[String(i)];
+      if(cm) comments.push({from: sub.n || (CFG.p[sub.r]||{}).n || "Anonymous", text: cm});
+    });
+    const partStats = perPart.map(stats);
+    const all = perPart.flat();
+    return {i, name:p.n, spine:p, partStats, overall:stats(all), comments, raters: perPart[0].length};
+  });
+}
+
+function renderResults(){
+  if(!CFG) return;
+  $("#subCount").textContent = subs.length
+    ? subs.length + " of " + CFG.p.length + " people have submitted: " + subs.map(s=>s.n || (CFG.p[s.r]||{}).n || "?").join(", ")
+    : "No submissions yet.";
+  const body = $("#resultsBody");
+  if(!subs.length){ body.innerHTML=""; return; }
+
+  const data = aggregate().filter(d=>d.overall.n>0);
+  const ranked = [...data].sort((a,b)=>b.overall.mean-a.overall.mean);
+  const showNames = $("#showNames").checked;
+
+  let html = `<div class="card"><span class="eyebrow">The room, ranked</span><h3 style="margin-bottom:10px">Overall sharpness</h3>`;
+  ranked.forEach((d,k)=>{
+    html += `<div class="rank">
+      <span class="pos">${String(k+1).padStart(2,"0")}</span>
+      <span class="nm">${esc(d.name)}</span>
+      <span class="track"><i style="width:${d.overall.mean/5*100}%;background:${shade(d.overall.mean)}"></i></span>
+      <span class="val">${d.overall.mean.toFixed(2)}</span>
+    </div>`;
+  });
+  html += `<p class="note" style="margin-top:10px">Mean of all five components, all raters. Out of 5.</p></div>`;
+
+  const compAvg = PARTS.map((p,j)=>{
+    const vals = data.map(d=>d.partStats[j]).filter(s=>s.n).map(s=>s.mean);
+    return {label:p.label, mean: vals.length? vals.reduce((a,b)=>a+b,0)/vals.length : 0};
+  }).sort((a,b)=>a.mean-b.mean);
+  html += `<div class="card"><span class="eyebrow">Pattern across the room</span>
+    <h3>Weakest component overall: ${esc(compAvg[0].label)} (${compAvg[0].mean.toFixed(2)})</h3>
+    <p class="note">Strongest: ${esc(compAvg[compAvg.length-1].label)} (${compAvg[compAvg.length-1].mean.toFixed(2)}). If one component is weak across eight people, that's a brief problem, not eight individual problems.</p>
+  </div>`;
+
+  ranked.forEach(d=>{
+    const weakest = d.partStats
+      .map((s,j)=>({s,j}))
+      .filter(x=>x.s.n)
+      .sort((a,b)=>a.s.mean-b.s.mean)[0];
+    html += `<div class="card">
+      <div class="person-head">
+        <span class="name">${esc(d.name)}</span>
+        <span class="meta">${d.overall.mean.toFixed(2)} / 5 &nbsp;·&nbsp; ${d.raters} rater${d.raters===1?"":"s"}</span>
+      </div>
+      <div class="scorespine">
+        ${PARTS.map((part,j)=>{
+          const s=d.partStats[j];
+          if(!s.n) return "";
+          return `<div class="srow">
+            <span class="sl">${part.label}</span>
+            <span class="sb"><i style="width:${s.mean/5*100}%;background:${shade(s.mean)}"></i></span>
+            <span class="sv">${s.mean.toFixed(2)} <em>±${s.sd.toFixed(1)}</em></span>
+          </div>
+          ${s.sd>=SD_FLAG?'<div style="margin:-2px 0 2px 102px"><span class="flag">split room</span></div>':""}`;
+        }).join("")}
+      </div>
+      ${weakest ? `<div class="callout"><b>Sharpen first:</b> ${esc(PARTS[weakest.j].label)} &nbsp;<span class="note">"${esc(d.spine[PARTS[weakest.j].key]||"(blank)")}"</span></div>` : ""}
+      ${d.comments.length ? `<details open><summary>${d.comments.length} note${d.comments.length===1?"":"s"} from the room</summary>
+        ${d.comments.map(c=>`<div class="comment">${showNames?`<span class="who">${esc(c.from)}</span>`:""}${esc(c.text)}</div>`).join("")}
+      </details>` : `<p class="note">No written notes.</p>`}
+    </div>`;
+  });
+
+  body.innerHTML = html;
+}
+
+$("#exportCsv").addEventListener("click", ()=>{
+  if(!subs.length){ toast("Nothing to export"); return; }
+  const rows = [["rated","rater",...PARTS.map(p=>p.key),"mean","note"]];
+  subs.forEach(sub=>{
+    CFG.p.forEach((p,i)=>{
+      const sc = sub.s[i] || sub.s[String(i)];
+      if(!sc) return;
+      const mean = (sc.reduce((a,b)=>a+b,0)/sc.length).toFixed(2);
+      const note = (sub.c||{})[i] ?? (sub.c||{})[String(i)] ?? "";
+      rows.push([p.n, sub.n||"", ...sc, mean, note]);
+    });
+  });
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="spine-check-results.csv"; a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+function growAll(){
+  $$("textarea").forEach(t=>{ t.style.height="auto"; t.style.height=(t.scrollHeight+2)+"px"; });
+}
+
+/* auto-grow textareas */
+document.addEventListener("input", e=>{
+  if(e.target.tagName==="TEXTAREA"){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; }
+});
+
+boot();
+</script>
+</body>
+</html>
