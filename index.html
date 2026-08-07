@@ -144,10 +144,13 @@ input[type=text]:focus,textarea:focus,select:focus{outline:0;border-color:var(--
 .rank .track i{display:block;height:100%;background:var(--blue)}
 .rank .val{font-family:"IBM Plex Mono",monospace;font-weight:600;width:44px;text-align:right}
 
-.scorespine{display:flex;flex-direction:column;gap:4px;margin-top:8px}
-.srow{display:grid;grid-template-columns:92px 1fr 78px;gap:10px;align-items:center}
-.srow .sl{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.srow .sb{height:20px;border:1.5px solid var(--ink);background:var(--paper);position:relative;overflow:hidden}
+.scorespine{display:flex;flex-direction:column;margin-top:8px}
+.srow{display:grid;grid-template-columns:92px 1fr 132px;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.srow .sl{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.srow .stext{font-size:14px}
+.srow .sscore{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.srow .sb{width:100%;height:12px;border:1.5px solid var(--ink);background:var(--paper);overflow:hidden}
 .srow .sb i{display:block;height:100%}
 .srow .sv{font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:right}
 .srow .sv em{font-style:normal;color:var(--muted)}
@@ -188,6 +191,33 @@ details summary{cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:1
 .live.hit{background:var(--pink)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 body.dragging .wrap{outline:3px dashed var(--blue);outline-offset:-10px}
+
+/* ---------- hover breakdown ---------- */
+.sscore,.cscore,.rank{position:relative}
+.srow:hover,.crow:hover,.rank:hover,
+.sscore:focus-within,.cscore:focus-within,.rank:focus-within{z-index:30}
+.srow:hover,.crow:hover{position:relative}
+.sscore:focus,.cscore:focus,.rank:focus{outline:0}
+.sscore:focus-visible,.cscore:focus-visible,.rank:focus-visible{outline:3px solid var(--pink);outline-offset:3px}
+.pop{
+  position:absolute;right:0;top:calc(100% + 8px);z-index:40;width:196px;
+  background:var(--ink);color:#F2F2EC;padding:10px 12px;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.4;
+  text-transform:none;letter-spacing:0;text-align:left;
+  opacity:0;pointer-events:none;transition:opacity .12s ease;
+}
+.sscore:hover .pop,.cscore:hover .pop,.rank:hover .pop,
+.sscore:focus-within .pop,.cscore:focus-within .pop,.rank:focus-within .pop{opacity:1}
+.pop b{
+  display:block;font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:#9C9CA4;margin-bottom:7px;
+}
+.pop .hrow{display:grid;grid-template-columns:9px 1fr 14px;gap:7px;align-items:center;height:15px}
+.pop .hrow em{font-style:normal;color:#9C9CA4}
+.pop .hrow i{display:block;height:7px;background:rgba(242,242,236,.28);min-width:0}
+.pop .hrow.on i{background:rgba(242,242,236,.92)}
+.pop .hrow u{text-decoration:none;text-align:right;color:#F2F2EC}
+@media (max-width:600px){ .pop{width:170px} }
 
 /* ---------- ask + component view ---------- */
 .viewtoggle{display:flex;border:1.5px solid var(--ink);width:fit-content;max-width:100%;margin:0 0 16px}
@@ -236,7 +266,9 @@ body.dragging .wrap{outline:3px dashed var(--blue);outline-offset:-10px}
   .crow .cbar{width:60%}
 }
 @media (max-width:600px){
-  .srow{grid-template-columns:74px 1fr 66px}
+  .srow{grid-template-columns:74px 1fr;gap:4px 10px}
+  .srow .sscore{grid-column:2;align-items:flex-start}
+  .srow .sb{width:60%}
   .rank .track{flex-basis:34%}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none !important}}
@@ -898,10 +930,23 @@ $("#clearCodes").addEventListener("click", ()=>{
 $("#showNames").addEventListener("change", renderResults);
 
 function stats(arr){
-  const n=arr.length; if(!n) return {mean:0,sd:0,n:0};
+  const n=arr.length; if(!n) return {mean:0,sd:0,n:0,hist:[0,0,0,0,0]};
   const mean = arr.reduce((a,b)=>a+b,0)/n;
   const sd = Math.sqrt(arr.reduce((a,b)=>a+(b-mean)**2,0)/n);
-  return {mean, sd, n};
+  const hist=[0,0,0,0,0];
+  arr.forEach(v=>{ if(v>=1 && v<=5) hist[Math.round(v)-1]++; });
+  return {mean, sd, n, hist};
+}
+
+/* the 1-5 spread behind a mean, on hover */
+function histHTML(label, st){
+  if(!st || !st.n) return "";
+  const max = Math.max.apply(null, st.hist);
+  const rows = [5,4,3,2,1].map(v=>{
+    const c = st.hist[v-1];
+    return `<span class="hrow${c && c===max ? " on" : ""}"><em>${v}</em><i style="width:${max?c/max*100:0}%"></i><u>${c}</u></span>`;
+  }).join("");
+  return `<span class="pop"><b>${esc(label)} &middot; ${st.n} rater${st.n===1?"":"s"}</b>${rows}</span>`;
 }
 /* Rank carries the colour, not the score: the top three in any ranking get
    the accent at falling strength, everything else reads as a quiet wash. */
@@ -1043,7 +1088,7 @@ function answerBlock(q){
 function rankFor(key){
   const j = partIndex(key);
   return AGG.filter(d=>d.partStats[j].n)
-    .map(d=>({i:d.i, name:d.name, text:d.spine[key], mean:d.partStats[j].mean, sd:d.partStats[j].sd, n:d.partStats[j].n}))
+    .map(d=>({i:d.i, name:d.name, text:d.spine[key], mean:d.partStats[j].mean, sd:d.partStats[j].sd, n:d.partStats[j].n, hist:d.partStats[j].hist}))
     .sort((a,b)=>b.mean-a.mean);
 }
 
@@ -1080,9 +1125,10 @@ function byComponentHTML(){
         <span class="cpos">${String(k+1).padStart(2,"0")}</span>
         <span class="cname">${esc(r.name)}${k===0?'<span class="badge top">sharpest</span>':""}${k===list.length-1?'<span class="badge bot">weakest</span>':""}</span>
         <span class="ctext">${esc(r.text)||'<span class="note">(blank)</span>'}</span>
-        <span class="cscore">
+        <span class="cscore" tabindex="0">
           <span class="cbar"><i style="width:${r.mean/5*100}%;background:${barFill(k)}"></i></span>
           <span class="cnum">${r.mean.toFixed(2)} <em>&plusmn;${r.sd.toFixed(2)}</em></span>
+          ${histHTML(part.label+" · "+r.name, r)}
         </span>
       </div>`).join("")}
     </div>`;
@@ -1094,11 +1140,12 @@ function byPersonHTML(showNames){
   const ranked = [...AGG].sort((a,b)=>b.overall.mean-a.overall.mean);
   let html = `<div class="card"><span class="eyebrow">The room, ranked</span><h3 style="margin-bottom:10px">Overall sharpness</h3>`;
   ranked.forEach((d,k)=>{
-    html += `<div class="rank">
+    html += `<div class="rank" tabindex="0">
       <span class="pos">${String(k+1).padStart(2,"0")}</span>
       <span class="nm">${esc(d.name)}</span>
       <span class="track"><i style="width:${d.overall.mean/5*100}%;background:${barFill(k)}"></i></span>
       <span class="val">${d.overall.mean.toFixed(2)}</span>
+      ${histHTML(d.name+" · all five", d.overall)}
     </div>`;
   });
   html += `<p class="note" style="margin-top:10px">Mean of all five components, all raters. Out of 5.</p></div>`;
@@ -1125,13 +1172,17 @@ function byPersonHTML(showNames){
           if(!s.n) return "";
           return `<div class="srow">
             <span class="sl">${part.label}</span>
-            <span class="sb"><i style="width:${s.mean/5*100}%;background:${BAR_MUTE}"></i></span>
-            <span class="sv">${s.mean.toFixed(2)} <em>&plusmn;${s.sd.toFixed(1)}</em></span>
-          </div>
-          ${s.sd>=SD_FLAG?'<div style="margin:-2px 0 2px 102px"><span class="flag">split room</span></div>':""}`;
+            <span class="stext">${esc(d.spine[part.key]) || '<span class="note">(left blank)</span>'}${
+              s.sd>=SD_FLAG ? '<span class="flag">split room</span>' : ""}</span>
+            <span class="sscore" tabindex="0">
+              <span class="sb"><i style="width:${s.mean/5*100}%;background:${BAR_MUTE}"></i></span>
+              <span class="sv">${s.mean.toFixed(2)} <em>&plusmn;${s.sd.toFixed(1)}</em></span>
+              ${histHTML(part.label, s)}
+            </span>
+          </div>`;
         }).join("")}
       </div>
-      ${weakest ? `<div class="callout"><b>Sharpen first:</b> ${esc(PARTS[weakest.j].label)} &nbsp;<span class="note">${esc(d.spine[PARTS[weakest.j].key]||"(blank)")}</span></div>` : ""}
+      ${weakest ? `<div class="callout"><b>Sharpen first:</b> ${esc(PARTS[weakest.j].label)} <span class="note">at ${weakest.s.mean.toFixed(2)}</span></div>` : ""}
       ${d.comments.length ? `<details open><summary>${d.comments.length} note${d.comments.length===1?"":"s"} from the room</summary>
         ${d.comments.map(c=>`<div class="comment">${showNames?`<span class="who">${esc(c.from)}</span>`:""}${esc(c.text)}</div>`).join("")}
       </details>` : `<p class="note">No written notes.</p>`}
