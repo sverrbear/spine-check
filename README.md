@@ -2,7 +2,9 @@
 
 A single-file tool for peer-rating brand spines in a workshop. No backend, no accounts, no data leaves anyone's browser.
 
-Each spine has five components: **Who, Outcome, Mechanism, Quality, Reject**. Everyone scores everyone else's five components 1 to 5 and can leave one written note per person.
+Each spine has five components: **Who, Outcome, Mechanism, Quality, Reject**. Everyone scores every spine's five components 1 to 5 — their own included — and can leave one written note per spine.
+
+The eight spines from the August 2026 Smitten session are already committed as `spines.json`, so the plain URL loads them with nothing to type in.
 
 ## Put it online (2 minutes)
 
@@ -13,16 +15,16 @@ Each spine has five components: **Who, Outcome, Mechanism, Quality, Reject**. Ev
 
 ## Running the session
 
-1. Open the URL, go to **Set up**, type in all 8 names and spines.
-2. Click **Make the rating link**, copy it, drop it in Slack.
-3. Everyone opens it, picks their name, rates the other 7, clicks **Finish**, and pastes the code back to you.
-4. You open **Results**, paste all the codes into the box, and hit **Add codes**.
+1. Drop the plain URL in Slack. The spines load from `spines.json` — no setup step needed.
+2. Everyone opens it, picks their spine number, rates all 8, clicks **Finish**, and pastes the code back to you.
+3. You open **Results**, paste all the codes into the box, and hit **Add codes**.
 
-If the link looks too long for Slack, click **Download spines.json** on the setup screen and commit that file next to `index.html`. The app loads it automatically, so the plain URL works on its own.
+To run it with a different set of spines: go to **Set up**, type them in, then either click **Make the rating link** and send that, or click **Download spines.json** and commit that file over the existing one.
 
 ## What the results show
 
-- Overall ranking by mean score across all five components.
+- Overall ranking by mean score across all five components, plus a **By component** view that ranks all eight spines against each other on one component at a time.
+- An **Ask the results** box: type `top who`, `bottom mechanism`, `biggest disagreement`, or a spine number, and it answers.
 - Per person: a score per component, the standard deviation, and a `split room` flag when raters disagree by more than 1.1.
 - The weakest component across the whole room, which usually says more about the brief than about any individual.
 - Every written note, anonymous by default, with a toggle to reveal who wrote what.
