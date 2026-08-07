@@ -18,11 +18,15 @@ The eight spines from the August 2026 Smitten session are already committed as `
 1. Drop the plain URL in Slack. The spines load from `spines.json` — no setup step needed.
 2. Everyone opens it, picks which spine is theirs and types their name, rates all 8, hits **Finish**, then **Download my ratings**. They get a file named after their spine and themselves, like `spine-03-bjorn.json`.
 3. They drop that file back in the Slack thread.
-4. You open **Results** and drag all eight files onto the drop zone at once.
+4. You open **Results** and drag the files anywhere onto the page — all eight at once is fine.
 
-**To make the results page stand on its own**, commit those eight files into `subs/` instead of dragging them. The Results tab lists that folder through the public GitHub API every time it opens, so anyone with the URL sees the full results with nothing to drag, and they survive a cleared browser.
+**To make the results page stand on its own**, commit those files into `subs/` instead of dragging them. Results is nothing but the charts: it watches that folder and re-renders itself about once a minute, so you can leave it on the projector and each spine fills in as its file lands. Anyone with the URL sees the same thing, and it survives a cleared browser.
+
+Everything else — the drop zone, **Reload from repo**, **Clear all**, the code box — is tucked behind **Add files** in the status strip.
 
 To run it with a different set of spines: go to **Set up**, type them in, then either click **Make the rating link** and send that, or click **Download spines.json** and commit that file over the existing one.
+
+The refresh is a minute rather than a second because the unauthenticated GitHub API allows 60 requests an hour per IP, and a conditional request that comes back `304 Not Modified` still costs one against it. The page reads its remaining budget off each response and sleeps until the window resets if it gets close, so leaving the tab open all afternoon is safe. Hit **Reload from repo** if you don't want to wait for the next tick.
 
 ### Why there is a step 3
 
